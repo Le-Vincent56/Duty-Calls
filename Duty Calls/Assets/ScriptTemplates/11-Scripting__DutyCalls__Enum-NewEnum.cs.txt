@@ -1,0 +1,8 @@
+#nullable enable
+
+    #ROOTNAMESPACEBEGIN#
+public enum #SCRIPTNAME#
+{
+    None = 0
+}
+#ROOTNAMESPACEEND#

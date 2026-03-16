@@ -1,0 +1,23 @@
+#nullable enable
+
+using System.Collections;
+using NUnit.Framework;
+using UnityEngine.TestTools;
+
+    #ROOTNAMESPACEBEGIN#
+public sealed class #SCRIPTNAME#
+{
+    [Test]
+    public void Example()
+    {
+        Assert.Pass();
+    }
+
+    [UnityTest]
+    public IEnumerator ExampleUnityTest()
+    {
+        yield return null;
+        Assert.Pass();
+    }
+}
+#ROOTNAMESPACEEND#

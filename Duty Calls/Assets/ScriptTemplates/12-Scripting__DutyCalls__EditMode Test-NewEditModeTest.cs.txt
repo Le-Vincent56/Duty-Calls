@@ -1,0 +1,15 @@
+#nullable enable
+
+using NUnit.Framework;
+
+namespace DutyCalls.Tests.EditMode
+{
+    public sealed class #SCRIPTNAME#
+    {
+        [Test]
+        public void Example()
+        {
+            Assert.Pass();
+        }
+    }
+}

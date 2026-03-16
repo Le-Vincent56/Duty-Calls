@@ -1,0 +1,16 @@
+{
+    "name": "DutyCalls.Presentation",
+    "rootNamespace": "DutyCalls.Presentation",
+    "references": [
+        "GUID:f9cbea6fef934f1418e23ec12a747cb0"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
