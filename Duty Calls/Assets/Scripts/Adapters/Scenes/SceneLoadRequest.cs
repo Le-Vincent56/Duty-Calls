@@ -122,8 +122,8 @@ namespace DutyCalls.Adapters.Scenes
         }
 
         public SceneGroup SceneGroup { get; private set; } = null!;
-        public ISceneTransition PreTransition { get; private set; }
-        public ISceneTransition PostTransition { get; private set; }
+        public ISceneTransition? PreTransition { get; private set; }
+        public ISceneTransition? PostTransition { get; private set; }
         public bool MarkScenesAsPersistent { get; private set; }
 
         private SceneLoadRequest() { }

@@ -1,8 +1,9 @@
 {
     "name": "DutyCalls.Presentation",
-    "rootNamespace": "DutyCalls.Presentation",
+    "rootNamespace": "DutyCalls",
     "references": [
-        "GUID:f9cbea6fef934f1418e23ec12a747cb0"
+        "GUID:f9cbea6fef934f1418e23ec12a747cb0",
+        "GUID:49b252f04aa7f22418df9891ec78bc0e"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

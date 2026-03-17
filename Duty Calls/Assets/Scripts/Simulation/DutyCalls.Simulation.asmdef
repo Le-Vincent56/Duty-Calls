@@ -1,6 +1,6 @@
 {
     "name": "DutyCalls.Simulation",
-    "rootNamespace": "DutyCalls.Simulation",
+    "rootNamespace": "DutyCalls",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

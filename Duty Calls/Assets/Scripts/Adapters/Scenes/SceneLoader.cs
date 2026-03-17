@@ -202,18 +202,17 @@ namespace DutyCalls.Adapters.Scenes
         }
 
         /// <summary>
-        /// Asynchronously loads and activates the scenes specified in the provided scene load request, updating progress throughout the operation.
+        /// Asynchronously handles the loading and activation of scenes based on the specified request and updates the load progress.
         /// </summary>
-        /// <param name="request">The parameters of the scene loading operation, including the scenes to load and load behavior settings.</param>
-        /// <param name="result">The result container used to store the state and outcomes of the scene loading operation.</param>
-        /// <returns>A task that represents the asynchronous operation of loading and activating the specified scenes.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the operation fails due to invalid or conflicting scene loading conditions.</exception>
+        /// <param name="request">The scene load request containing the group of scenes to be loaded and associated settings.</param>
+        /// <param name="result">The result object to be updated with details of the executed scene load operation.</param>
+        /// <returns>A task representing the asynchronous operation of loading and activating scenes.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the scene group in the request is empty or invalid.</exception>
         private async Task ExecuteLoadAndActivatePhaseAsync(SceneLoadRequest request, SceneLoadResult result)
         {
             SceneGroup.SceneEntry[] entries = request.SceneGroup.Scenes;
             int sceneCount = entries.Length;
-
-            // Exit case - no scenes to load
+            
             if (sceneCount <= 0)
             {
                 _progress.OnNext(new LoadProgress
@@ -223,106 +222,79 @@ namespace DutyCalls.Adapters.Scenes
                     RangeProgress = 1.0f,
                     CurrentOperation = "No Scenes To Load"
                 });
-
                 return;
             }
 
+            // Find the owner (gameplay) scene
             bool requireOwner = !request.MarkScenesAsPersistent;
             int ownerIndex = requireOwner ? FindOwnerSceneIndex(entries) : -1;
-
-            // Store loading handles
-            AsyncOperationHandle<SceneInstance>[] handlesByIndex = new AsyncOperationHandle<SceneInstance>[sceneCount];
-            for (int i = 0; i < sceneCount; i++)
+            
+            // Build the activation order
+            List<int> loadOrder = BuildActivationOrder(entries, ownerIndex, requireOwner);
+            List<LoadedSceneHandle> records = new List<LoadedSceneHandle>(sceneCount);
+            _loadedGroups[request.SceneGroup] = records;
+            
+            for (int i = 0; i < loadOrder.Count; i++)
             {
-                SceneGroup.SceneEntry entry = entries[i];
-
-                // Exit case - the entry has a null reference
+                int index = loadOrder[i];
+                SceneGroup.SceneEntry entry = entries[index];
+                
+                // Exit case - if the entry's scene reference is null
                 if (entry.SceneReference == null)
                 {
                     throw new InvalidOperationException(
-                        $"SceneEntry.SceneReference is null at index {i} in SceneGroup '{request.SceneGroup.name}'"
+                        "SceneEntry.SceneReference is null at index " +
+                        index +
+                        " in SceneGroup '" +
+                        request.SceneGroup.name +
+                        "'."
                     );
                 }
 
-                handlesByIndex[i] = Addressables.LoadSceneAsync(entry.SceneReference, LoadSceneMode.Additive, false);
-            }
-
-            // Calculate loading progress
-            while (!AllHandlesDone(handlesByIndex))
-            {
-                float average = ComputeAverageProgress(handlesByIndex);
-                float normalized = 0.25f + (average * 0.50f);
-
+                float startProgress = i / (float)sceneCount;
+                
                 _progress.OnNext(new LoadProgress
                 {
-                    NormalizedProgress = normalized,
+                    NormalizedProgress = 0.25f + (startProgress * 0.70f),
                     CurrentRange = "Load",
-                    RangeProgress = average,
-                    CurrentOperation = "Loading " + sceneCount + " Scene(s)"
+                    RangeProgress = startProgress,
+                    CurrentOperation = "Loading Scene " + (i + 1) + " of " + sceneCount
                 });
-
-                await Task.Yield();
-            }
-
-            // Handle all loading operations and record them
-            SceneInstance[] instancesByIndex = new SceneInstance[sceneCount];
-            List<LoadedSceneHandle> records = new List<LoadedSceneHandle>(sceneCount);
-            for (int i = 0; i < sceneCount; i++)
-            {
-                AsyncOperationHandle<SceneInstance> handle = handlesByIndex[i];
-
+                
+                // Set the load scene handle
+                AsyncOperationHandle<SceneInstance> handle = Addressables.LoadSceneAsync(
+                    entry.SceneReference,
+                    LoadSceneMode.Additive,
+                    true
+                );
+                
                 await handle.Task;
-
-                instancesByIndex[i] = handle.Result;
-                records.Add(new LoadedSceneHandle(handle, request.MarkScenesAsPersistent, entries[i].SceneType));
-            }
-
-            _loadedGroups[request.SceneGroup] = records;
-            List<int> activationOrder = BuildActivationOrder(entries, ownerIndex, requireOwner);
-            float activationStart = 0.75f;
-            float activationTotal = 0.20f;
-            float perScene = activationTotal / activationOrder.Count;
-
-            for (int i = 0; i < activationOrder.Count; i++)
-            {
-                int index = activationOrder[i];
-
-                _progress.OnNext(new LoadProgress
+                
+                SceneInstance instance = handle.Result;
+                records.Add(new LoadedSceneHandle(handle, request.MarkScenesAsPersistent, entry.SceneType));
+                result.LoadedScenes.Add(instance.Scene.name);
+                
+                if (requireOwner && index == ownerIndex)
                 {
-                    NormalizedProgress = activationStart + (i * perScene),
-                    CurrentRange = "Activate",
-                    RangeProgress = i / (float)activationOrder.Count,
-                    CurrentOperation = $"Activating {sceneCount} Scene(s)"
-                });
+                    Scene ownerScene = instance.Scene;
+                    
+                    // Exit case - the owner scene is not valid or not loaded
+                    if (!ownerScene.IsValid() || !ownerScene.isLoaded)
+                        throw new InvalidOperationException("Owner (SceneType.Gameplay) scene failed to load.");
 
-                AsyncOperation op = instancesByIndex[index].ActivateAsync();
-
-                await AwaitAsyncOperationAsync(op);
-
-                result.LoadedScenes.Add(instancesByIndex[index].Scene.name);
-            }
-
-            // Activate the owner scene if required
-            if (requireOwner)
-            {
-                Scene ownerScene = instancesByIndex[ownerIndex].Scene;
-
-                // Exit case - owner scene is invalid or not loaded
-                if (!ownerScene.IsValid() || !ownerScene.isLoaded)
-                {
-                    throw new InvalidOperationException("Owner (SceneType.Gameplay) scene failed to activate.");
+                    SceneManager.SetActiveScene(ownerScene);
                 }
 
-                SceneManager.SetActiveScene(ownerScene);
+                float completedProgress = (i + 1) / (float)sceneCount;
+                
+                _progress.OnNext(new LoadProgress
+                {
+                    NormalizedProgress = 0.25f + (completedProgress * 0.70f),
+                    CurrentRange = "Load",
+                    RangeProgress = completedProgress,
+                    CurrentOperation = "Loaded " + instance.Scene.name
+                });
             }
-
-            _progress.OnNext(new LoadProgress
-            {
-                NormalizedProgress = 0.95f,
-                CurrentRange = "Activate",
-                RangeProgress = 1.0f,
-                CurrentOperation = "Scenes Activated"
-            });
 
             _progress.OnNext(new LoadProgress
             {
@@ -344,57 +316,6 @@ namespace DutyCalls.Adapters.Scenes
             if (request.PostTransition == null) return;
 
             await request.PostTransition.PlayAsync(_progress);
-        }
-
-        /// <summary>
-        /// Awaits the completion of the specified asynchronous Unity operation.
-        /// </summary>
-        /// <param name="operation">The asynchronous operation to be awaited. If null, the method immediately returns.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        private static async Task AwaitAsyncOperationAsync(AsyncOperation? operation)
-        {
-            // Exit case - no operation is provided
-            if (operation == null) return;
-
-            while (!operation.isDone)
-            {
-                await Task.Yield();
-            }
-        }
-
-        /// <summary>
-        /// Determines whether all asynchronous operation handles have completed their tasks.
-        /// </summary>
-        /// <param name="handles">An array of asynchronous operation handles representing scene loading processes.</param>
-        /// <returns>True if all handles have completed; otherwise, false.</returns>
-        private static bool AllHandlesDone(AsyncOperationHandle<SceneInstance>[] handles)
-        {
-            for (int i = 0; i < handles.Length; i++)
-            {
-                // Exit case - the handle operation has not finished
-                if (!handles[i].IsDone) return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Calculates the average progress of multiple asynchronous scene loading operations.
-        /// </summary>
-        /// <param name="handles">The array of <see cref="AsyncOperationHandle{SceneInstance}"/> objects representing the loading operations.</param>
-        /// <returns>A float value indicating the average progress of the provided loading operations, with a range of 0.0 to 1.0.</returns>
-        private static float ComputeAverageProgress(AsyncOperationHandle<SceneInstance>[] handles)
-        {
-            // Exit case - no handles provided
-            if (handles.Length == 0) return 1f;
-
-            float total = 0f;
-            for (int i = 0; i < handles.Length; i++)
-            {
-                total += handles[i].PercentComplete;
-            }
-
-            return total / handles.Length;
         }
 
         /// <summary>
@@ -423,7 +344,7 @@ namespace DutyCalls.Adapters.Scenes
             if (ownerCount != 1)
             {
                 throw new InvalidOperationException(
-                    $"SceneGroup must contain exactly one SceneType.Gameplay entry (owner). Found: ownerCount"
+                    $"SceneGroup must contain exactly one SceneType.Gameplay entry (owner). Found: {ownerCount}" 
                 );
             }
 

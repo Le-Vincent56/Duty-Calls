@@ -1,10 +1,11 @@
 #nullable enable
+
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace DutyCalls.Adapters.Bootstrapping.Editor
+namespace DutyCalls.Editor.Adapters.Bootstrap
 {
     /// <summary>
     /// Enforces a dedicated boot scene as the Play Mode start scene in the Unity Editor.
