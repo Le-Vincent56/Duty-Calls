@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 739d395904db4f9c889b5ca1531fffee, type: 3}
-  m_Name: SceneGroup_Persistent
+  m_Name: SceneGroup_PersistentSystems
   m_EditorClassIdentifier: Assembly-CSharp::DutyCalls.Adapters.Scenes.SceneGroup
   scenes:
   - SceneReference:

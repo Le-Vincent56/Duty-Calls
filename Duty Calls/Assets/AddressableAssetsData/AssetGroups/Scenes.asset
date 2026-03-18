@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: Scene Groups
+  m_Name: Scenes
   m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
-  m_GroupName: Scene Groups
+  m_GroupName: Scenes
   m_GUID: 955df8b92781532488603864a0e6c6eb
   m_SerializeEntries:
   - m_GUID: 03c08cfe2f3e734429f884f4f56b2fc5
